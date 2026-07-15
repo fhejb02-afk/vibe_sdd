@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>오늘의 할 일</title>
+    <style>
+      body { font-family: Arial, sans-serif; margin: 0; padding: 24px; background: #f5f7fb; color: #111827; }
+      .container { max-width: 720px; margin: 0 auto; background: white; border-radius: 16px; padding: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); }
+      h1 { margin-top: 0; }
+      .toolbar { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+      input { flex: 1; min-width: 0; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; }
+      button { border: none; border-radius: 8px; padding: 10px 12px; cursor: pointer; }
+      .primary { background: #2563eb; color: white; }
+      .secondary { background: #e5e7eb; color: #111827; }
+      .danger { background: #ef4444; color: white; }
+      .filters { display: flex; gap: 8px; margin-bottom: 12px; }
+      .todo-list { display: flex; flex-direction: column; gap: 8px; }
+      .todo-item { display: flex; justify-content: space-between; gap: 8px; align-items: center; padding: 12px; border: 1px solid #e5e7eb; border-radius: 10px; background: #f9fafb; }
+      .todo-item.completed { text-decoration: line-through; color: #6b7280; background: #f3f4f6; }
+      .todo-title { flex: 1; word-break: break-word; }
+      .empty { text-align: center; color: #6b7280; padding: 20px 0; }
+      .summary { margin-bottom: 16px; color: #4b5563; }
+      @media (max-width: 360px) {
+        body { padding: 12px; }
+        .container { padding: 16px; }
+        .toolbar { flex-direction: column; }
+        .todo-item { flex-direction: column; align-items: flex-start; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>오늘의 할 일</h1>
+      <p class="summary">남은 할 일 <span id="remaining-count">0</span>개</p>
+      <div class="toolbar">
+        <input id="todo-input" placeholder="새 할 일을 입력하세요" />
+        <button class="primary" id="add-button">추가</button>
+      </div>
+      <div class="filters">
+        <button class="secondary" data-filter="all">전체</button>
+        <button class="secondary" data-filter="active">진행중</button>
+        <button class="secondary" data-filter="completed">완료</button>
+      </div>
+      <div id="todo-list" class="todo-list"></div>
+      <div id="empty-state" class="empty">할 일이 없습니다. 새 할 일을 추가해보세요.</div>
+    </div>
+    <script>
+      const state = { filter: 'all' };
+      const input = document.getElementById('todo-input');
+      const list = document.getElementById('todo-list');
+      const empty = document.getElementById('empty-state');
+      const remainingCount = document.getElementById('remaining-count');
+
+      async function loadTodos() {
+        const response = await fetch('/api/todos?status=' + state.filter);
+        const todos = await response.json();
+        renderTodos(todos);
+      }
+
+      function renderTodos(todos) {
+        list.innerHTML = '';
+        const activeCount = todos.filter(todo => !todo.completed).length;
+        remainingCount.textContent = activeCount;
+        if (todos.length === 0) {
+          empty.style.display = 'block';
+          return;
+        }
+        empty.style.display = 'none';
+        todos.forEach(todo => {
+          const item = document.createElement('div');
+          item.className = 'todo-item' + (todo.completed ? ' completed' : '');
+          item.innerHTML = `<div class="todo-title">${todo.title}</div><div><button class="secondary" data-action="toggle">${todo.completed ? '취소' : '완료'}</button><button class="danger" data-action="delete">삭제</button></div>`;
+          item.querySelector('[data-action="toggle"]').addEventListener('click', () => toggleTodo(todo.id));
+          item.querySelector('[data-action="delete"]').addEventListener('click', () => deleteTodo(todo.id));
+          list.appendChild(item);
+        });
+      }
+
+      async function addTodo() {
+        const title = input.value.trim();
+        if (!title) {
+          return;
+        }
+        await fetch('/api/todos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title }) });
+        input.value = '';
+        loadTodos();
+      }
+
+      async function toggleTodo(id) {
+        await fetch(`/api/todos/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ completed: true }) });
+        loadTodos();
+      }
+
+      async function deleteTodo(id) {
+        await fetch(`/api/todos/${id}`, { method: 'DELETE' });
+        loadTodos();
+      }
+
+      document.getElementById('add-button').addEventListener('click', addTodo);
+      input.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          addTodo();
+        }
+      });
+
+      document.querySelectorAll('[data-filter]').forEach(button => {
+        button.addEventListener('click', () => {
+          state.filter = button.getAttribute('data-filter');
+          document.querySelectorAll('[data-filter]').forEach(other => other.classList.remove('active'));
+          button.classList.add('active');
+          loadTodos();
+        });
+      });
+
+      loadTodos();
+    </script>
+  </body>
+</html>

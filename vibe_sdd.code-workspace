@@ -1,0 +1,13 @@
+{
+  "folders": [
+    {
+      "path": "todo-app"
+    }
+  ],
+  "settings": {
+    "files.exclude": {
+      "**/.git": true,
+      "**/.venv": true
+    }
+  }
+}
